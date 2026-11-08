@@ -1697,13 +1697,25 @@ def get_miles_extra_args_provider(add_custom_arguments=None):
             )
             parser.add_argument(
                 "--score-centering-is",
-                choices=["none", "tis", "mis"],
+                choices=["none", "tis", "mis", "cispo"],
                 default="none",
                 help="Importance weights to center together with the policy score.",
             )
             parser.add_argument("--score-centering-tis-clip", type=float, default=2.0)
             parser.add_argument("--score-centering-mis-low", type=float, default=0.5)
             parser.add_argument("--score-centering-mis-high", type=float, default=5.0)
+            parser.add_argument(
+                "--score-centering-cispo-low",
+                type=float,
+                default=0.0,
+                help="Lower bound 1 - eps_low of the CISPO importance weight (arXiv:2506.13585).",
+            )
+            parser.add_argument(
+                "--score-centering-cispo-high",
+                type=float,
+                default=4.0,
+                help="Upper bound 1 + eps_high of the CISPO importance weight (arXiv:2506.13585).",
+            )
             parser.add_argument(
                 "--kl-loss-type",
                 type=str,

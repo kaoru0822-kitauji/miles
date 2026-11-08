@@ -187,6 +187,8 @@ def score_centering_loss_function(
             tis_clip=args.score_centering_tis_clip,
             mis_low=args.score_centering_mis_low,
             mis_high=args.score_centering_mis_high,
+            cispo_low=args.score_centering_cispo_low,
+            cispo_high=args.score_centering_cispo_high,
         ),
     )
     pg_loss = sum_of_sample_mean(token_loss)

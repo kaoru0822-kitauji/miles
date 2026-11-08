@@ -17,6 +17,9 @@ def validate_score_centering_args(args: Namespace) -> None:
     low, high = args.score_centering_mis_low, args.score_centering_mis_high
     if not (math.isfinite(low) and math.isfinite(high) and 0 < low <= high):
         raise ValueError("Score-centering MIS bounds must be finite with 0 < low <= high")
+    low, high = args.score_centering_cispo_low, args.score_centering_cispo_high
+    if not (math.isfinite(low) and math.isfinite(high) and 0 <= low <= 1 <= high):
+        raise ValueError("Score-centering CISPO bounds must be finite with 0 <= low <= 1 <= high")
     validate_rollout_topk_logprobs_sampling(
         {"top_k": args.rollout_top_k},
         temperature=args.rollout_temperature,

@@ -1,6 +1,6 @@
 # Score Centering
 
-Correct off-policy score drift using the sampler's top-k probabilities, with optional truncated or masked importance weights.
+Correct off-policy score drift using the sampler's top-k probabilities, with optional truncated, masked or clipped (CISPO) importance weights.
 
 This implements [Score Centering Stabilizes Off-policy Reinforcement Learning](https://arxiv.org/abs/2609.20807), including the efficient top-k approximation in Appendix A.
 
@@ -25,7 +25,7 @@ Selecting `--loss-type score_centering` automatically enables `--sglang-enable-f
 
 Keep reward mean subtraction enabled. Disabling standard-deviation normalization gives the paper's group-centered rewards. This is a separate REINFORCE-style loss: PPO clipping parameters do not apply. Existing batch size and update scheduling still control how many updates consume a rollout batch; choose them explicitly when reproducing an experiment.
 
-Choose `--score-centering-is tis` for weights clipped at `--score-centering-tis-clip` (default 2). Choose `mis` to retain ratios in `[--score-centering-mis-low, --score-centering-mis-high]` (defaults 0.5 and 5), setting other weights to zero. These weights are centered together with the score. Use these options instead of `--use-tis` or a custom TIS function.
+Choose `--score-centering-is tis` for weights clipped at `--score-centering-tis-clip` (default 2). Choose `mis` to retain ratios in `[--score-centering-mis-low, --score-centering-mis-high]` (defaults 0.5 and 5), setting other weights to zero. Choose `cispo` for the asymmetric clipping of [CISPO](https://arxiv.org/abs/2506.13585): each weight is clamped to `[--score-centering-cispo-low, --score-centering-cispo-high]` (defaults 0 and 4), that is `[1 - eps_low, 1 + eps_high]`, and a clipped token keeps its gradient. The bounds must satisfy `0 <= low <= 1 <= high`; a lower bound of 0 gives `tis`. These weights are centered together with the score. Use these options instead of `--use-tis` or a custom TIS function.
 
 The existing entropy and reference-KL loss options remain available. They are separate regularizers; the score-centering identity applies to the policy-gradient term.
 With filtered sampling, sampling-support replay rules prohibit reference KL; entropy is computed over the recorded support.

@@ -31,6 +31,8 @@ class ScoreCenteringInputs:
     tis_clip: float = 2.0
     mis_low: float = 0.5
     mis_high: float = 5.0
+    cispo_low: float = 0.0
+    cispo_high: float = 4.0
     eps: float = 1e-6
 
     def __post_init__(self) -> None:
@@ -70,7 +72,12 @@ def score_centering_loss(inputs: ScoreCenteringInputs) -> tuple[torch.Tensor, Sc
     that differs from the modeled, rescaled trainer tail.
     """
     sampling = importance_sampling(
-        inputs.mode, tis_clip=inputs.tis_clip, mis_low=inputs.mis_low, mis_high=inputs.mis_high
+        inputs.mode,
+        tis_clip=inputs.tis_clip,
+        mis_low=inputs.mis_low,
+        mis_high=inputs.mis_high,
+        cispo_low=inputs.cispo_low,
+        cispo_high=inputs.cispo_high,
     )
     active = inputs.advantages.detach() != 0
     train_head = sanitize_head_log_probs(inputs.train_head_log_probs, inputs.head_mask, active)

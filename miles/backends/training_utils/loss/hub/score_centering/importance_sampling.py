@@ -75,20 +75,52 @@ class MaskedImportanceSampling:
         return torch.where(self._inside(log_ratio), log_ratio.clamp(max=math.log(self.high)).exp(), 0.0)
 
 
+@dataclass(frozen=True)
+class ClippedImportanceSampling:
+    """CISPO's asymmetric clipping (arXiv:2506.13585): f(r) = clamp(r, low, high).
+
+    ``low`` is 1 - eps_low and ``high`` is 1 + eps_high. With ``low = 0`` this is TIS.
+    """
+
+    low: float
+    high: float
+
+    def head_mass(self, p: torch.Tensor, q: torch.Tensor, log_ratio: torch.Tensor) -> torch.Tensor:
+        # q * clamp(p/q, low, high), including q=0, without dividing by q.
+        return torch.minimum(torch.maximum(p, self.low * q), self.high * q)
+
+    def tail_scale(self, rho: torch.Tensor, dtype: torch.dtype) -> torch.Tensor:
+        # rho * clamp(1/rho, low, high)
+        return torch.maximum(self.low * rho, (self.high * rho).clamp_max(1))
+
+    def sample_weight(self, log_ratio: torch.Tensor) -> torch.Tensor:
+        if torch.isnan(log_ratio).any():
+            raise ValueError("Score-centering importance log-ratio contains NaN")
+        log_low = math.log(self.low) if self.low > 0 else None
+        return log_ratio.clamp(min=log_low, max=math.log(self.high)).exp()
+
+
 def importance_sampling(
-    mode: str, *, tis_clip: float, mis_low: float, mis_high: float
-) -> NoImportanceSampling | TruncatedImportanceSampling | MaskedImportanceSampling:
+    mode: str, *, tis_clip: float, mis_low: float, mis_high: float, cispo_low: float, cispo_high: float
+) -> NoImportanceSampling | TruncatedImportanceSampling | MaskedImportanceSampling | ClippedImportanceSampling:
     """Validate the parameters of ``mode`` and return its importance sampling."""
     if mode == "tis" and (not math.isfinite(tis_clip) or tis_clip <= 0):
         raise ValueError("Score-centering TIS clip must be positive and finite")
     if mode == "mis" and (not math.isfinite(mis_low) or not math.isfinite(mis_high) or not 0 < mis_low <= mis_high):
         raise ValueError("Score-centering MIS bounds must be finite with 0 < low <= high")
+    # A token whose trainer and sampler probabilities match must keep weight 1, so low <= 1 <= high.
+    if mode == "cispo" and not (
+        math.isfinite(cispo_low) and math.isfinite(cispo_high) and 0 <= cispo_low <= 1 <= cispo_high
+    ):
+        raise ValueError("Score-centering CISPO bounds must be finite with 0 <= low <= 1 <= high")
     if mode == "none":
         return NoImportanceSampling()
     if mode == "tis":
         return TruncatedImportanceSampling(clip=tis_clip)
     if mode == "mis":
         return MaskedImportanceSampling(low=mis_low, high=mis_high)
+    if mode == "cispo":
+        return ClippedImportanceSampling(low=cispo_low, high=cispo_high)
     raise ValueError(f"Unknown score-centering importance weighting: {mode}")
 
 
@@ -99,7 +131,11 @@ def importance_weights(
     tis_clip: float = 2.0,
     mis_low: float = 0.5,
     mis_high: float = 5.0,
+    cispo_low: float = 0.0,
+    cispo_high: float = 4.0,
 ) -> torch.Tensor:
     """Evaluate token-level weights without exponentiating unbounded ratios."""
-    sampling = importance_sampling(mode, tis_clip=tis_clip, mis_low=mis_low, mis_high=mis_high)
+    sampling = importance_sampling(
+        mode, tis_clip=tis_clip, mis_low=mis_low, mis_high=mis_high, cispo_low=cispo_low, cispo_high=cispo_high
+    )
     return sampling.sample_weight(log_ratio)
